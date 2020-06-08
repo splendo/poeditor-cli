@@ -37,17 +37,11 @@ module POEditor
         UI.puts "  - Exporting '#{language}'"
         content = self.export(:api_key => @configuration.api_key,
                               :project_id => @configuration.project_id,
+                              :contexts => @configuration.contexts,
                               :language => language,
                               :type => @configuration.type,
                               :tags => @configuration.tags,
                               :filters => @configuration.filters)
-        write(language, content)
-
-        for alias_to, alias_from in @configuration.language_alias
-          if language == alias_from
-            write(alias_to, content)
-          end
-        end
       end
     end
 
@@ -61,11 +55,11 @@ module POEditor
     # @param filters [Array<String>]
     #
     # @return Downloaded translation content
-    def export(api_key:, project_id:, language:, type:, tags:nil, filters:nil)
+    def export(api_key:, project_id:, contexts:, language:, type:, tags:nil, filters:nil)
       options = {
         "id" => project_id,
         "language" => convert_to_poeditor_language(language),
-        "type" => type,
+        "type" => "json",
         "tags" => (tags || []).join(","),
         "filters" => (filters || []).join(","),
       }
@@ -87,9 +81,40 @@ module POEditor
         content.gsub!(/(%(\d+\$)?)@/, '\1s')  # %@ -> %s
       end
 
-      unless content.end_with? "\n"
-        content += "\n"
+      json = JSON.parse content
+      json.group_by{ |json| json['context'] }.each do |context, json|
+        case type
+        when "apple_strings"
+          content = appleStrings(json)
+        when "android_strings"
+          content = androidStrings(json)
+        end
+
+        write(context, language, content)
+
+        for alias_to, alias_from in @configuration.language_alias
+          if language == alias_from
+            write(context, alias_to, content)
+          end
+        end
       end
+
+    end
+
+    def appleStrings(json)
+      content = ""
+      json.each { |item|
+        content << "\"#{item["term"]}\" = #{item["definition"].dump};\n"
+      }
+      return content
+    end
+
+    def androidStrings(json)
+      content = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n"
+      json.each { |item|
+        content << "  <string name=\"#{item["term"]}\">#{item["definition"].dump}</string>\n"
+      }
+      content << "</resources>\n"
       return content
     end
 
@@ -104,8 +129,8 @@ module POEditor
     end
 
     # Write translation file
-    def write(language, content)
-      path = path_for_language(language)
+    def write(context, language, content)
+      path = path_for_context_language(context, language).delete_prefix("/")
       unless File.exist?(path)
         raise POEditor::Exception.new "#{path} doesn't exist"
       end
@@ -113,13 +138,12 @@ module POEditor
       UI.puts "      #{"\xe2\x9c\x93".green} Saved at '#{path}'"
     end
 
-    def path_for_language(language)
+    def path_for_context_language(context, language)
       if @configuration.path_replace[language]
-        @configuration.path_replace[language]
+        @configuration.path_replace[language].gsub("{CONTEXT}", context)
       else
-        @configuration.path.gsub("{LANGUAGE}", language)
+        @configuration.path.gsub("{CONTEXT}", context).gsub("{LANGUAGE}", language)
       end
     end
-
   end
 end
