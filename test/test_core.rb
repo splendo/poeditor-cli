@@ -47,13 +47,19 @@ class CoreTest < Test
     stub_api_export "en", %{[
       {"term": "greeting", "definition": "Hi, %s!", "context": ""},
       {"term": "welcome", "definition": "Welcome!", "context": ""},
-      {"term": "welcome", "definition": "Welcome to context1!", "context": "context1"},
-      {"term": "welcome", "definition": "Welcome to context2!", "context": "context2"}
+      {"term": "welcome", "definition": "Welcome to App 1!", "context": "context1"},
+      {"term": "welcome", "definition": "Welcome to App 2!", "context": "context2"},
+      {"term": "thank_you", "definition": "Thank you for downloading $app_name.", "context": ""},
+      {"term": "app_name", "definition": "App 1 in EN", "context": "context1"},
+      {"term": "app_name", "definition": "App 2 in EN", "context": "context2"}
     ]}
     stub_api_export "nl", %{[
       {"term": "welcome", "definition": "Welkom!", "context": ""},
-      {"term": "welcome", "definition": "Welkom bij context1!", "context": "context1"},
-      {"term": "welcome", "definition": "Welkom bij context2!", "context": "context2"}
+      {"term": "welcome", "definition": "Welkom bij App 1!", "context": "context1"},
+      {"term": "welcome", "definition": "Welkom bij App 2!", "context": "context2"},
+      {"term": "thank_you", "definition": "Bedankt voor het downloaden van $app_name.", "context": ""},
+      {"term": "app_name", "definition": "App 1 in NL", "context": "context1"},
+      {"term": "app_name", "definition": "App 2 in NL", "context": "context2"}
     ]}
     stub_api_export "ko", %{[{"term": "greeting", "definition": "%s님 안녕하세요!", "context": ""}]}
     stub_api_export "zh-CN", %{[{"term": "greeting", "definition": "Simplified 你好, %s!", "context": ""}]}
@@ -160,12 +166,12 @@ class CoreTest < Test
     client.pull()
 
     assert_match /Welcome!/, File.read("TestProj/values/strings.xml")
-    assert_match /Welcome to context1!/, File.read("TestProj/context1/values/strings.xml")
-    assert_match /Welcome to context2!/, File.read("TestProj/context2/values/strings.xml")
+    assert_match /Welcome to App 1!/, File.read("TestProj/context1/values/strings.xml")
+    assert_match /Welcome to App 2!/, File.read("TestProj/context2/values/strings.xml")
 
     assert_match /Welkom!/, File.read("TestProj/values-nl/strings.xml")
-    assert_match /Welkom bij context1!/, File.read("TestProj/context1/values-nl/strings.xml")
-    assert_match /Welkom bij context2!/, File.read("TestProj/context2/values-nl/strings.xml")
+    assert_match /Welkom bij App 1!/, File.read("TestProj/context1/values-nl/strings.xml")
+    assert_match /Welkom bij App 2!/, File.read("TestProj/context2/values-nl/strings.xml")
 
     assert(!/Welcome!/.match(File.read("TestProj/values-nl/strings.xml")))
     assert(!/Welcome!/.match(File.read("TestProj/context1/values/strings.xml")))
@@ -174,6 +180,23 @@ class CoreTest < Test
     assert(!/Welkom!/.match(File.read("TestProj/values/strings.xml")))
     assert(!/Welkom!/.match(File.read("TestProj/context1/values/strings.xml")))
     assert(!/Welkom!/.match(File.read("TestProj/context1/values-nl/strings.xml")))
+  end
+
+  def test_placeholders
+    client = get_client(
+      :type => "android_strings",
+      :languages => ["en", "nl"],
+      :path => "TestProj/values-{LANGUAGE}/strings.xml",
+      :path_replace => {"en" => "TestProj/values/strings.xml"},
+      :context_path => "TestProj/{CONTEXT}/values-{LANGUAGE}/strings.xml",
+      :context_path_replace => {"en" => "TestProj/{CONTEXT}/values/strings.xml"}
+    )
+    client.pull()
+
+    assert_match /Thank you for downloading App 1 in EN./, File.read("TestProj/context1/values/strings.xml")
+    assert_match /Thank you for downloading App 2 in EN./, File.read("TestProj/context2/values/strings.xml")
+    assert_match /Bedankt voor het downloaden van App 1 in NL./, File.read("TestProj/context1/values-nl/strings.xml")
+    assert_match /Bedankt voor het downloaden van App 2 in NL./, File.read("TestProj/context2/values-nl/strings.xml")
   end
 
 end

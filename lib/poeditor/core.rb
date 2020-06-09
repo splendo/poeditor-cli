@@ -82,9 +82,23 @@ module POEditor
 
       json = JSON.parse content
       groups = json.group_by { |json| json['context'] }
+      placeholderItems = []
       groups.each do |context, json|
-        if context != nil && context != "" && @configuration.context_path == nil
-          next # if context path is not defined, skip saving context strings
+        if context == "" 
+          json.each { |item|
+            definition = item["definition"]
+            if definition =~ /\$([a-z_]+)/
+              placeholderItems << item
+            end
+          }
+        end
+      end
+      groups.each do |context, json|
+        if context != "" 
+          if @configuration.context_path == nil
+            next # if context path is not defined, skip saving context strings
+          end
+          copyPlaceholderItems(placeholderItems, context, json)
         end
 
         case type
@@ -102,6 +116,40 @@ module POEditor
           end
         end
       end
+    end
+
+    # Copy items with replaced placeholders to context json
+    #
+    # @param items [JSON]
+    # @param context String
+    # @param contextJson JSON
+    #
+    def copyPlaceholderItems(items, context, contextJson)
+      items.each { |item|
+        term = item["term"]
+        definition = item["definition"].gsub(/\$([a-z_]+)/) { |placeholder|
+          definitionForPlaceholder(placeholder, contextJson) 
+        }
+
+        if !contextJson.find { |e| e["term"] == term }
+          newItem = {
+            "term" => term,
+            "definition" => definition,
+            "context" => context
+          }
+          contextJson << newItem
+        end
+      }
+    end
+
+    def definitionForPlaceholder(placeholder, contextJson)
+      term = placeholder.delete_prefix("$")
+      contextJson.each { |item|
+        if item["term"] == term
+          return item["definition"]
+        end
+      }
+      return placeholder
     end
 
     def appleStrings(json)
