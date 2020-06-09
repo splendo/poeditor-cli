@@ -107,7 +107,7 @@ module POEditor
     def appleStrings(json)
       content = ""
       json.each { |item|
-        definition = item["definition"]
+        definition = item["definition"].gsub("\"", "\\\"")
         content << "\"#{item["term"]}\" = \"#{definition}\";\n"
       }
       return content
@@ -116,7 +116,7 @@ module POEditor
     def androidStrings(json)
       content = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n"
       json.each { |item|
-        definition = item["definition"]
+        definition = item["definition"].gsub("\"", "\\\"")
         content << "  <string name=\"#{item["term"]}\">\"#{definition}\"</string>\n"
       }
       content << "</resources>\n"
