@@ -16,9 +16,6 @@ module POEditor
     # @return [Array<String>] Filters by 'translated', 'untranslated', 'fuzzy', 'not_fuzzy', 'automatic', 'not_automatic', 'proofread', 'not_proofread' (optional)
     attr_accessor :filters
 
-    # @return [Array<String>] Contexts
-    attr_accessor :contexts
-
     # @return [Array<String>] The languages codes
     attr_accessor :languages
 
@@ -31,21 +28,30 @@ module POEditor
     # @return [Hash{Sting => String}] The path replacements
     attr_accessor :path_replace
 
-    def initialize(api_key:, project_id:, type:, tags:nil, filters:nil, 
-                   contexts:, languages:, language_alias:nil,
-                   path:, path_replace:nil)
+    # @return [String] The context path template
+    attr_accessor :context_path
+
+    # @return [Hash{Sting => String}] The context path replacements
+    attr_accessor :context_path_replace
+
+    def initialize(api_key:, project_id:, type:, tags:nil, 
+                   filters:nil, languages:, language_alias:nil,
+                   path:, path_replace:nil,
+                   context_path:nil, context_path_replace:nil)
       @api_key = from_env(api_key)
       @project_id = from_env(project_id.to_s)
       @type = type
       @tags = tags || []
       @filters = filters || []
 
-      @contexts = contexts
       @languages = languages
       @language_alias = language_alias || {}
 
       @path = path
       @path_replace = path_replace || {}
+
+      @context_path = context_path
+      @context_path_replace = context_path_replace || {}
     end
 
     def from_env(value)
@@ -62,11 +68,12 @@ module POEditor
         "type" => self.type,
         "tags" => self.tags,
         "filters" => self.filters,
-        "contexts" => self.contexts,
         "languages" => self.languages,
         "language_alias" => self.language_alias,
         "path" => self.path,
         "path_replace" => self.path_replace,
+        "context_path" => self.context_path,
+        "context_path_replace" => self.context_path_replace,
       }
       YAML.dump(values)[4..-2]
         .each_line

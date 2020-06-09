@@ -37,7 +37,6 @@ module POEditor
         UI.puts "  - Exporting '#{language}'"
         content = self.export(:api_key => @configuration.api_key,
                               :project_id => @configuration.project_id,
-                              :contexts => @configuration.contexts,
                               :language => language,
                               :type => @configuration.type,
                               :tags => @configuration.tags,
@@ -55,7 +54,7 @@ module POEditor
     # @param filters [Array<String>]
     #
     # @return Downloaded translation content
-    def export(api_key:, project_id:, contexts:, language:, type:, tags:nil, filters:nil)
+    def export(api_key:, project_id:, language:, type:, tags:nil, filters:nil)
       options = {
         "id" => project_id,
         "language" => convert_to_poeditor_language(language),
@@ -82,7 +81,12 @@ module POEditor
       end
 
       json = JSON.parse content
-      json.group_by{ |json| json['context'] }.each do |context, json|
+      groups = json.group_by { |json| json['context'] }
+      groups.each do |context, json|
+        if context != nil && context != "" && @configuration.context_path == nil
+          next # if context path is not defined, skip saving context strings
+        end
+
         case type
         when "apple_strings"
           content = appleStrings(json)
@@ -98,13 +102,13 @@ module POEditor
           end
         end
       end
-
     end
 
     def appleStrings(json)
       content = ""
       json.each { |item|
-        content << "\"#{item["term"]}\" = #{item["definition"].dump};\n"
+        definition = item["definition"]
+        content << "\"#{item["term"]}\" = \"#{definition}\";\n"
       }
       return content
     end
@@ -112,7 +116,8 @@ module POEditor
     def androidStrings(json)
       content = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n"
       json.each { |item|
-        content << "  <string name=\"#{item["term"]}\">#{item["definition"].dump}</string>\n"
+        definition = item["definition"]
+        content << "  <string name=\"#{item["term"]}\">\"#{definition}\"</string>\n"
       }
       content << "</resources>\n"
       return content
@@ -130,7 +135,12 @@ module POEditor
 
     # Write translation file
     def write(context, language, content)
-      path = path_for_context_language(context, language).delete_prefix("/")
+      path = path_for_context_language(context, language)
+
+      unless path != nil
+        raise POEditor::Exception.new "Undefined context path"
+      end
+
       unless File.exist?(path)
         raise POEditor::Exception.new "#{path} doesn't exist"
       end
@@ -139,10 +149,20 @@ module POEditor
     end
 
     def path_for_context_language(context, language)
-      if @configuration.path_replace[language]
-        @configuration.path_replace[language].gsub("{CONTEXT}", context)
+      if context == nil || context == ""
+        if @configuration.path_replace[language]
+          path = @configuration.path_replace[language]
+        else
+          path = @configuration.path.gsub("{LANGUAGE}", language)
+        end
       else
-        @configuration.path.gsub("{CONTEXT}", context).gsub("{LANGUAGE}", language)
+        if @configuration.context_path_replace[language]
+          path = @configuration.context_path_replace[language].gsub("{CONTEXT}", context)
+        elsif @configuration.context_path
+          path = @configuration.context_path.gsub("{LANGUAGE}", language).gsub("{CONTEXT}", context)
+        else
+          return nil
+        end
       end
     end
   end

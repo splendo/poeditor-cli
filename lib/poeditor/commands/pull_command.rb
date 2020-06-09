@@ -43,11 +43,12 @@ Configuration file doesn't exist: #{config_path}.
         type: get_or_raise(yaml, "type"),
         tags: yaml["tags"],
         filters: yaml["filters"],
-        contexts: yaml["contexts"],
         languages: get_or_raise(yaml, "languages"),
         language_alias: yaml["language_alias"],
         path: get_or_raise(yaml, "path"),
         path_replace: yaml["path_replace"],
+        context_path: yaml["context_path"],
+        context_path_replace: yaml["context_path_replace"]
       )
     end
 
