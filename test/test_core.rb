@@ -18,9 +18,10 @@ class CoreTest < Test
     for language in ios_languages
       FileUtils.mkdir_p("TestProj/#{language}.lproj")
       File.write("TestProj/#{language}.lproj/Localizable.strings", "")
+      File.write("TestProj/#{language}.lproj/Localizable.stringsdict", "")
       for context in contexts
-        FileUtils.mkdir_p("TestProj/#{context}/#{language}.lproj")
-        File.write("TestProj/#{context}/#{language}.lproj/Localizable.strings", "")
+        File.write("TestProj/#{language}.lproj/#{context}.strings", "")
+        File.write("TestProj/#{language}.lproj/#{context}.stringsdict", "")
       end
     end
     
@@ -50,16 +51,16 @@ class CoreTest < Test
       {"term": "welcome", "definition": "Welcome to App 1!", "context": "context1"},
       {"term": "welcome", "definition": "Welcome to App 2!", "context": "context2"},
       {"term": "thank_you", "definition": "Thank you for downloading $app_name.", "context": ""},
-      {"term": "app_name", "definition": "App 1 in EN", "context": "context1"},
-      {"term": "app_name", "definition": "App 2 in EN", "context": "context2"}
+      {"term": "app_name", "definition": "App 1 in 🇬🇧", "context": "context1"},
+      {"term": "app_name", "definition": "App 2 in 🇬🇧", "context": "context2"}
     ]}
     stub_api_export "nl", %{[
       {"term": "welcome", "definition": "Welkom!", "context": ""},
       {"term": "welcome", "definition": "Welkom bij App 1!", "context": "context1"},
       {"term": "welcome", "definition": "Welkom bij App 2!", "context": "context2"},
       {"term": "thank_you", "definition": "Bedankt voor het downloaden van $app_name.", "context": ""},
-      {"term": "app_name", "definition": "App 1 in NL", "context": "context1"},
-      {"term": "app_name", "definition": "App 2 in NL", "context": "context2"}
+      {"term": "app_name", "definition": "App 1 in 🇳🇱", "context": "context1"},
+      {"term": "app_name", "definition": "App 2 in 🇳🇱", "context": "context2"}
     ]}
     stub_api_export "ko", %{[{"term": "greeting", "definition": "%s님 안녕하세요!", "context": ""}]}
     stub_api_export "zh-CN", %{[{"term": "greeting", "definition": "Simplified 你好, %s!", "context": ""}]}
@@ -72,8 +73,8 @@ class CoreTest < Test
   end
 
   def get_client(type:, languages:, language_alias:nil,
-                 path:, path_replace:nil,
-                 context_path:nil, context_path_replace:nil)
+                 path:, path_plural:nil, path_replace:nil,
+                 context_path:nil, context_path_plural:nil, context_path_replace:nil)
     configuration = POEditor::Configuration.new(
       :api_key => "TEST",
       :project_id => 12345,
@@ -83,8 +84,10 @@ class CoreTest < Test
       :languages => languages,
       :language_alias => language_alias,
       :path => path,
+      :path_plural => path_plural,
       :path_replace => path_replace,
       :context_path => context_path,
+      :context_path_plural => context_path_plural,
       :context_path_replace => context_path_replace
     )
     POEditor::Core.new(configuration)
@@ -193,10 +196,10 @@ class CoreTest < Test
     )
     client.pull()
 
-    assert_match /Thank you for downloading App 1 in EN./, File.read("TestProj/context1/values/strings.xml")
-    assert_match /Thank you for downloading App 2 in EN./, File.read("TestProj/context2/values/strings.xml")
-    assert_match /Bedankt voor het downloaden van App 1 in NL./, File.read("TestProj/context1/values-nl/strings.xml")
-    assert_match /Bedankt voor het downloaden van App 2 in NL./, File.read("TestProj/context2/values-nl/strings.xml")
+    assert_match /Thank you for downloading App 1 in 🇬🇧./, File.read("TestProj/context1/values/strings.xml")
+    assert_match /Thank you for downloading App 2 in 🇬🇧./, File.read("TestProj/context2/values/strings.xml")
+    assert_match /Bedankt voor het downloaden van App 1 in 🇳🇱./, File.read("TestProj/context1/values-nl/strings.xml")
+    assert_match /Bedankt voor het downloaden van App 2 in 🇳🇱./, File.read("TestProj/context2/values-nl/strings.xml")
   end
 
 end
