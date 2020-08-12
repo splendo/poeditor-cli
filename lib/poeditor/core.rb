@@ -272,11 +272,12 @@ module POEditor
         raise POEditor::Exception.new "Undefined context path"
       end
 
-      unless File.exist?(path)
-        raise POEditor::Exception.new "#{path} doesn't exist"
+      if File.exist?(path)
+        File.write(path, content)
+        UI.puts "      #{"\xe2\x9c\x93".green} Saved at '#{path}'"
+      else
+        UI.puts "      #{"\xe2\x9c\x97".red} File not found '#{path}'"
       end
-      File.write(path, content)
-      UI.puts "      #{"\xe2\x9c\x93".green} Saved at '#{path}'"
     end
 
     def path_for_context_language(context, language)
