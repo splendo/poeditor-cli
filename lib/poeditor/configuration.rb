@@ -15,6 +15,9 @@ module POEditor
     
     # @return [Array<String>] Filters by 'translated', 'untranslated', 'fuzzy', 'not_fuzzy', 'automatic', 'not_automatic', 'proofread', 'not_proofread' (optional)
     attr_accessor :filters
+    
+    # @return [Hash{Sting => String}] Header (optional)
+    attr_accessor :header
 
     # @return [Array<String>] The languages codes
     attr_accessor :languages
@@ -40,8 +43,8 @@ module POEditor
     # @return [Hash{Sting => String}] The context path replacements
     attr_accessor :context_path_replace
 
-    def initialize(api_key:, project_id:, type:, tags:nil, 
-                   filters:nil, languages:, language_alias:nil,
+    def initialize(api_key:, project_id:, type:, tags:nil, filters:nil, 
+    			   header:nil, languages:, language_alias:nil,
                    path:, path_plural: nil, path_replace:nil,
                    context_path:nil, context_path_plural:nil, context_path_replace:nil)
       @api_key = from_env(api_key)
@@ -49,6 +52,7 @@ module POEditor
       @type = type
       @tags = tags || []
       @filters = filters || []
+      @header = header
 
       @languages = languages
       @language_alias = language_alias || {}
@@ -76,6 +80,7 @@ module POEditor
         "type" => self.type,
         "tags" => self.tags,
         "filters" => self.filters,
+        "header" => self.header,
         "languages" => self.languages,
         "language_alias" => self.language_alias,
         "path" => self.path,

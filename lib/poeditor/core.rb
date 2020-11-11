@@ -40,7 +40,8 @@ module POEditor
                               :language => language,
                               :type => @configuration.type,
                               :tags => @configuration.tags,
-                              :filters => @configuration.filters)
+                              :filters => @configuration.filters,
+                              :header => @configuration.header)
       end
     end
 
@@ -52,9 +53,10 @@ module POEditor
     # @param type [String]
     # @param tags [Array<String>]
     # @param filters [Array<String>]
+    # @param header [String]
     #
     # @return Downloaded translation content
-    def export(api_key:, project_id:, language:, type:, tags:nil, filters:nil)
+    def export(api_key:, project_id:, language:, type:, tags:nil, filters:nil, header:nil)
       options = {
         "id" => project_id,
         "language" => convert_to_poeditor_language(language),
@@ -76,7 +78,7 @@ module POEditor
       case type
       when "apple_strings"
         content.gsub!(/(%(\d+\$)?)s/, '\1@')  # %s -> %@
-      when "android_strings"
+      when "android_strings", "kotlin_strings"
         content.gsub!(/(%(\d+\$)?)@/, '\1s')  # %@ -> %s
       end
 
@@ -112,6 +114,10 @@ module POEditor
           end
         when "android_strings"
           content = androidStrings(json)
+          path = path_for_context_language(context, language)
+          write(context, language, content, :singular)
+        when "kotlin_strings"
+          content = kotlinStrings(json, header)
           path = path_for_context_language(context, language)
           write(context, language, content, :singular)
         end
@@ -215,20 +221,38 @@ module POEditor
         definition = item["definition"]
         if definition.instance_of? String
           value = definition.gsub("\"", "\\\"").gsub("&", "&amp;")
-          content << "  <string name=\"#{item["term"]}\">\"#{value}\"</string>\n"
+          content << "    <string name=\"#{item["term"]}\">\"#{value}\"</string>\n"
         else
-          content << "  <plurals name=\"#{item["term"]}\">\n"
+          content << "    <plurals name=\"#{item["term"]}\">\n"
           ["zero", "one", "two", "few", "many", "other"].each { |form|
             pluralItem = androidPluralItem(definition, form)
             if pluralItem != nil
               content << pluralItem
             end
           }
-          content << "  </plurals>\n"
+          content << "    </plurals>\n"
         end
       }
       content << "</resources>\n"
       return content
+    end
+    
+    def kotlinStrings(json, header)
+      content = ""
+      if header != nil
+      	content << "#{header}\n\n"
+      end
+      content << "object Strings {\n"
+      json.each { |item|
+      	content << "    val #{snakeCaseToCamelCase(item["term"])} = \"#{item["term"]}\".localized()\n"
+      }
+      content << "}\n"
+      return content
+    end
+    
+    def snakeCaseToCamelCase(text)
+    	words = text.split('_')
+    	return words[0] + words[1..-1].collect(&:capitalize).join
     end
 
     def androidPluralItem(definition, form)

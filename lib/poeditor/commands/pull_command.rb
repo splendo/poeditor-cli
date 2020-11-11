@@ -41,6 +41,7 @@ Configuration file doesn't exist: #{config_path}.
         type: get_or_raise(yaml, "type"),
         tags: yaml["tags"],
         filters: yaml["filters"],
+        header: yaml["header"],
         languages: get_or_raise(yaml, "languages"),
         language_alias: yaml["language_alias"],
         path: get_or_raise(yaml, "path"),
