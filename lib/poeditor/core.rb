@@ -240,9 +240,16 @@ module POEditor
     def kotlinStrings(json, header)
       content = ""
       if header != nil
-      	content << "#{header}\n\n"
+      	content << "#{header}\n"
       end
-      content << "object Strings {\n"
+      content << "
+class Strings {
+	companion object {
+		val Strings by lazy {
+			Strings()
+		}
+	}\n
+"
       json.each { |item|
       	content << "    val #{snakeCaseToCamelCase(item["term"])} = \"#{item["term"]}\".localized()\n"
       }
