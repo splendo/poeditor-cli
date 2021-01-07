@@ -44,6 +44,7 @@ Configuration file doesn't exist: #{config_path}.
         header: yaml["header"],
         languages: get_or_raise(yaml, "languages"),
         language_alias: yaml["language_alias"],
+        kotlin_strings_groups: yaml["kotlin_strings_groups"],
         path: get_or_raise(yaml, "path"),
         path_plural: yaml["path_plural"],
         path_replace: yaml["path_replace"],

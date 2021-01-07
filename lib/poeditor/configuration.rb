@@ -43,10 +43,14 @@ module POEditor
     # @return [Hash{Sting => String}] The context path replacements
     attr_accessor :context_path_replace
 
+    # @return [Hash{Sting => String}] Stings grouping for kotlin output
+    attr_accessor :kotlin_strings_groups
+
     def initialize(api_key:, project_id:, type:, tags:nil, filters:nil, 
     			   header:nil, languages:, language_alias:nil,
                    path:, path_plural: nil, path_replace:nil,
-                   context_path:nil, context_path_plural:nil, context_path_replace:nil)
+                   context_path:nil, context_path_plural:nil, context_path_replace:nil,
+                   kotlin_strings_groups: nil)
       @api_key = from_env(api_key)
       @project_id = from_env(project_id.to_s)
       @type = type
@@ -64,6 +68,7 @@ module POEditor
       @context_path = context_path
       @context_path_plural = context_path_plural || {}
       @context_path_replace = context_path_replace || {}
+      @kotlin_strings_groups = kotlin_strings_groups || {}
     end
 
     def from_env(value)
@@ -89,6 +94,7 @@ module POEditor
         "context_path" => self.context_path,
         "context_path_plural" => self.context_path_plural,
         "context_path_replace" => self.context_path_replace,
+        "kotlin_strings_groups" => self.kotlin_strings_groups
       }
       YAML.dump(values)[4..-2]
         .each_line

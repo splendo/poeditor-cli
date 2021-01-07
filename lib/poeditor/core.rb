@@ -238,8 +238,8 @@ module POEditor
     end
 
     def kotlinStrings(json, header)
-      prefixes = { "welcome_screen" => "Welcome", "connect_screen" => "Connect"}
-      nestedObjects = prefixes.map { |prefix,| [prefix, []] }
+      groups = @configuration.kotlin_strings_groups
+      nestedObjects = groups.map { |prefix,| [prefix, []] }
 
       content = ""
       if header != nil
@@ -262,7 +262,7 @@ object Strings {
         end
       }
       nestedObjects.each { |prefix, list|
-        content << getObject(prefixes[prefix], prefix, list)
+        content << getObject(groups[prefix], prefix, list)
       }
       content << "}\n"
       return content
