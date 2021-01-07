@@ -236,27 +236,52 @@ module POEditor
       content << "</resources>\n"
       return content
     end
-    
+
     def kotlinStrings(json, header)
+      prefixes = { "welcome_screen" => "Welcome", "connect_screen" => "Connect"}
+      nestedObjects = prefixes.map { |prefix,| [prefix, []] }
+
       content = ""
       if header != nil
       	content << "#{header}\n"
       end
       content << "
-class Strings {
-	companion object {
-		val Strings by lazy {
-			Strings()
-		}
-	}\n
+object Strings {
 "
       json.each { |item|
-      	content << "    val #{snakeCaseToCamelCase(item["term"])} = \"#{item["term"]}\".localized()\n"
+        hasPrefix = false
+        nestedObjects.each { |prefix, list|
+          if item["term"].start_with? prefix
+            list.push item["term"]
+            hasPrefix = true
+            break
+          end
+        }
+        if not hasPrefix
+      	  content << getLine(item["term"], item["term"])
+        end
+      }
+      nestedObjects.each { |prefix, list|
+        content << getObject(prefixes[prefix], prefix, list)
       }
       content << "}\n"
       return content
     end
-    
+
+    def getObject(name, prefix, list, offset = 4)
+      objectContent = "\n"
+      objectContent <<  " " * offset + "object #{name} {\n"
+      list.each { |term|
+        objectContent << getLine(term.delete_prefix("#{prefix}_"), term, offset + 4)
+      }
+      objectContent <<  " " * offset + "}\n"
+      return objectContent
+    end
+
+    def getLine(property, term, offset = 4)
+      return  " " * offset + "val #{snakeCaseToCamelCase(property)} = \"#{term}\".localized()\n"
+    end
+
     def snakeCaseToCamelCase(text)
     	words = text.split('_')
     	return words[0] + words[1..-1].collect(&:capitalize).join
