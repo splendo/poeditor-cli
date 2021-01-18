@@ -219,18 +219,20 @@ module POEditor
       content = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n"
       json.each { |item|
         definition = item["definition"]
-        if definition.instance_of? String
-          value = definition.gsub("\"", "\\\"").gsub("&", "&amp;")
-          content << "    <string name=\"#{item["term"]}\">\"#{value}\"</string>\n"
-        else
-          content << "    <plurals name=\"#{item["term"]}\">\n"
-          ["zero", "one", "two", "few", "many", "other"].each { |form|
-            pluralItem = androidPluralItem(definition, form)
-            if pluralItem != nil
-              content << pluralItem
-            end
-          }
-          content << "    </plurals>\n"
+        if definition != nil
+          if definition.instance_of? String
+            value = definition.gsub("\"", "\\\"").gsub("&", "&amp;")
+            content << "    <string name=\"#{item["term"]}\">\"#{value}\"</string>\n"
+          else	
+            content << "    <plurals name=\"#{item["term"]}\">\n"
+            ["zero", "one", "two", "few", "many", "other"].each { |form|
+              pluralItem = androidPluralItem(definition, form)
+              if pluralItem != nil
+                content << pluralItem
+              end
+            }
+            content << "    </plurals>\n"
+          end
         end
       }
       content << "</resources>\n"
