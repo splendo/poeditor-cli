@@ -252,13 +252,15 @@ object Strings {
         hasPrefix = false
         nestedObjects.each { |prefix, list|
           if item["term"].start_with? prefix
-            list.push item["term"]
+            listItem = { "term" => item["term"], "default" => defaultValue(item) }
+            list.push listItem
             hasPrefix = true
             break
           end
         }
+
         if not hasPrefix
-      	  content << getLine(item["term"], item["term"])
+      	  content << getLine(item["term"], item["term"], defaultValue(item))
         end
       }
       nestedObjects.each { |prefix, list|
@@ -268,18 +270,29 @@ object Strings {
       return content
     end
 
+    def defaultValue(item)
+      if item["definition"].instance_of? String
+        return item["definition"].gsub("\"", "\\\"").gsub("&", "&amp;")
+      else
+        return nil
+      end
+    end
+
     def getObject(name, prefix, list, offset = 4)
       objectContent = "\n"
       objectContent <<  " " * offset + "object #{name} {\n"
-      list.each { |term|
-        objectContent << getLine(term.delete_prefix("#{prefix}_"), term, offset + 4)
+      list.each { |listItem|
+        term = listItem["term"]
+        default = listItem["default"]
+        objectContent << getLine(term.delete_prefix("#{prefix}_"), term, default, offset + 4)
       }
       objectContent <<  " " * offset + "}\n"
       return objectContent
     end
 
-    def getLine(property, term, offset = 4)
-      return  " " * offset + "val #{snakeCaseToCamelCase(property)} = \"#{term}\".localized()\n"
+    def getLine(property, term, defaultValue = nil, offset = 4)
+      localizedFunction = defaultValue == nil ? "localized()" : "localized(defaultValue = \"#{defaultValue}\")"
+      return  " " * offset + "val #{snakeCaseToCamelCase(property)} = \"#{term}\".#{localizedFunction}\n"
     end
 
     def snakeCaseToCamelCase(text)
