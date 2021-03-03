@@ -244,16 +244,13 @@ module POEditor
       if header != nil
       	content << "#{header}\n"
       end
-      content << "
-class Strings {
-	companion object {
-		val Strings by lazy {
-			Strings()
-		}
-	}\n
+      content << "import kotlin.native.concurrent.ThreadLocal
+
+@ThreadLocal
+object Strings {
 "
       json.each { |item|
-      	content << "    val #{snakeCaseToCamelCase(item["term"])} = \"#{item["term"]}\".localized()\n"
+      	content << "    val #{snakeCaseToCamelCase(item["term"])} by lazy { \"#{item["term"]}\".localized() }\n"
       }
       content << "}\n"
       return content
