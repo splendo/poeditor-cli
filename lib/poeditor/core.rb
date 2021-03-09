@@ -86,7 +86,7 @@ module POEditor
       groups = json.group_by { |json| json['context'] }
       placeholderItems = []
       groups.each do |context, json|
-        if context == "" 
+        if context == ""
           json.each { |item|
             definition = item["definition"]
             if definition =~ /\$([a-z_]{3,})/
@@ -96,7 +96,7 @@ module POEditor
         end
       end
       groups.each do |context, json|
-        if context != "" 
+        if context != ""
           if @configuration.context_path == nil
             next # if context path is not defined, skip saving context strings
           end
@@ -120,6 +120,10 @@ module POEditor
           content = kotlinStrings(json, header)
           path = path_for_context_language(context, language)
           write(context, language, content, :singular)
+          if @configuration.path_plural != {}
+            pluralContent = pluralKotlinStrings(json, header)
+            write(context, language, pluralContent, :plural)
+          end
         end
       end
     end
@@ -134,7 +138,7 @@ module POEditor
       items.each { |item|
         term = item["term"]
         definition = item["definition"].gsub(/\$([a-z_]{3,})/) { |placeholder|
-          definitionForPlaceholder(placeholder, contextJson) 
+          definitionForPlaceholder(placeholder, contextJson)
         }
 
         if !contextJson.find { |e| e["term"] == term }
@@ -222,7 +226,7 @@ module POEditor
           if definition.instance_of? String
             value = definition.gsub("\"", "\\\"").gsub("&", "&amp;")
             content << "    <string name=\"#{item["term"]}\">\"#{value}\"</string>\n"
-          else	
+          else
             content << "    <plurals name=\"#{item["term"]}\">\n"
             ["zero", "one", "two", "few", "many", "other"].each { |form|
               pluralItem = androidPluralItem(definition, form)
@@ -237,31 +241,58 @@ module POEditor
       content << "</resources>\n"
       return content
     end
-    
+
     def kotlinStrings(json, header)
       content = ""
       if header != nil
-      	content << "#{header}\n"
+        content << "#{header}\n\n"
       end
-      content << "import kotlin.native.concurrent.ThreadLocal
+      content << "import com.splendo.kaluga.resources.localized
+import kotlin.native.concurrent.ThreadLocal
 
 @ThreadLocal
 object Strings {
 "
       json.each { |item|
-      	content << "    val #{snakeCaseToCamelCase(item["term"])} by lazy { \"#{item["term"]}\".localized() }\n"
+        term = item["term"]
+        definition = item["definition"]
+        if definition.instance_of? String
+          content << "    val #{snakeCaseToCamelCase(term)} by lazy { \"#{term}\".localized() }\n"
+        end
       }
       content << "}\n"
       return content
     end
-    
+
+    def pluralKotlinStrings(json, header)
+      content = ""
+      if header != nil
+        content << "#{header}\n\n"
+      end
+      content << "import com.splendo.kaluga.resources.quantity
+import kotlin.native.concurrent.ThreadLocal
+
+@ThreadLocal
+object Plurals {
+"
+      json.each { |item|
+        term = item["term"]
+        definition = item["definition"]
+        if definition.instance_of? Hash
+          content << "    fun #{snakeCaseToCamelCase(term)}(value: Int): String { return \"#{term}\".quantity(value) }\n"
+        end
+      }
+      content << "}\n"
+      return content
+    end
+
     def snakeCaseToCamelCase(text)
-    	words = text.split('_')
-    	return words[0] + words[1..-1].collect(&:capitalize).join
+      words = text.split('_')
+      return words[0] + words[1..-1].collect(&:capitalize).join
     end
 
     def androidPluralItem(definition, form)
-      if definition[form] != nil 
+      if definition[form] != nil
         value = definition[form].gsub("\"", "\\\"").gsub("&", "&amp;")
         return "    <item quantity=\"#{form}\">\"#{value}\"</item>\n"
       else
