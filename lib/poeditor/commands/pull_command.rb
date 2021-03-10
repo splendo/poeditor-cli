@@ -1,9 +1,7 @@
 module POEditor
   class PullCommand
     def run(argv)
-      UI.puts "Reading configuration"
       configuration = get_configuration(argv)
-      UI.puts configuration
       client = POEditor::Core.new(configuration)
       client.pull()
     end
@@ -43,10 +41,15 @@ Configuration file doesn't exist: #{config_path}.
         type: get_or_raise(yaml, "type"),
         tags: yaml["tags"],
         filters: yaml["filters"],
+        header: yaml["header"],
         languages: get_or_raise(yaml, "languages"),
         language_alias: yaml["language_alias"],
         path: get_or_raise(yaml, "path"),
+        path_plural: yaml["path_plural"],
         path_replace: yaml["path_replace"],
+        context_path: yaml["context_path"],
+        context_path_plural: yaml["context_path_plural"],
+        context_path_replace: yaml["context_path_replace"]
       )
     end
 

@@ -21,6 +21,12 @@ Command line application for [POEditor](https://poeditor.com).
 $ [sudo] gem install poeditor-cli
 ```
 
+Install from given repo and branch:
+
+```console
+$ [sudo] gem specific_install https://github.com/splendo/poeditor-cli -b kotlin-plurals
+```
+
 ## Usage
 
 A single command will do almost everything for you.
@@ -119,6 +125,30 @@ path_replace:
     path: myapp/src/main/res/values-{LANGUAGE}/strings.xml
     path_replace:
       en: myapp/src/main/res/values/strings.xml
+    ```
+
+* Multiplatform project
+
+For Kotlin and [Kaluga](https://github.com/splendo/kaluga)
+
+    ```yaml
+    api_key: $POEDITOR_API_KEY
+    project_id: $POEDITOR_PROJECT_ID
+    type: kotlin_strings
+    languages: [en]
+
+    header: "package my.project.models"
+    path: 'shared/src/commonMain/kotlin/my/project/models/Strings.kt'
+    path_plural: 'shared/src/commonMain/kotlin/my/project/models/Plurals.kt'
+    ```
+
+Where header is your package for generated objects.
+
+Usage:
+
+    ```kotlin
+    val myString = Strings.myAwesomeString
+    val myPlural = Plurals.myAwesomePlural(someIntValue)
     ```
 
 * Projects using gettext

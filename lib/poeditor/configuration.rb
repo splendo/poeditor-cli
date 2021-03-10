@@ -15,6 +15,9 @@ module POEditor
     
     # @return [Array<String>] Filters by 'translated', 'untranslated', 'fuzzy', 'not_fuzzy', 'automatic', 'not_automatic', 'proofread', 'not_proofread' (optional)
     attr_accessor :filters
+    
+    # @return [Hash{Sting => String}] Header (optional)
+    attr_accessor :header
 
     # @return [Array<String>] The languages codes
     attr_accessor :languages
@@ -25,23 +28,42 @@ module POEditor
     # @return [String] The path template
     attr_accessor :path
 
+    # @return [String] The plural path template
+    attr_accessor :path_plural
+
     # @return [Hash{Sting => String}] The path replacements
     attr_accessor :path_replace
 
-    def initialize(api_key:, project_id:, type:, tags:nil,
-                   filters:nil, languages:, language_alias:nil,
-                   path:, path_replace:nil)
+    # @return [String] The context path template
+    attr_accessor :context_path
+
+    # @return [String] The plural context path template
+    attr_accessor :context_path_plural
+
+    # @return [Hash{Sting => String}] The context path replacements
+    attr_accessor :context_path_replace
+
+    def initialize(api_key:, project_id:, type:, tags:nil, filters:nil, 
+    			   header:nil, languages:, language_alias:nil,
+                   path:, path_plural: nil, path_replace:nil,
+                   context_path:nil, context_path_plural:nil, context_path_replace:nil)
       @api_key = from_env(api_key)
       @project_id = from_env(project_id.to_s)
       @type = type
       @tags = tags || []
       @filters = filters || []
+      @header = header
 
       @languages = languages
       @language_alias = language_alias || {}
 
       @path = path
+      @path_plural = path_plural || {}
       @path_replace = path_replace || {}
+
+      @context_path = context_path
+      @context_path_plural = context_path_plural || {}
+      @context_path_replace = context_path_replace || {}
     end
 
     def from_env(value)
@@ -58,10 +80,15 @@ module POEditor
         "type" => self.type,
         "tags" => self.tags,
         "filters" => self.filters,
+        "header" => self.header,
         "languages" => self.languages,
         "language_alias" => self.language_alias,
         "path" => self.path,
+        "path_plural" => self.path_plaural,
         "path_replace" => self.path_replace,
+        "context_path" => self.context_path,
+        "context_path_plural" => self.context_path_plural,
+        "context_path_replace" => self.context_path_replace,
       }
       YAML.dump(values)[4..-2]
         .each_line

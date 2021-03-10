@@ -40,14 +40,8 @@ module POEditor
                               :language => language,
                               :type => @configuration.type,
                               :tags => @configuration.tags,
-                              :filters => @configuration.filters)
-        write(language, content)
-
-        for alias_to, alias_from in @configuration.language_alias
-          if language == alias_from
-            write(alias_to, content)
-          end
-        end
+                              :filters => @configuration.filters,
+                              :header => @configuration.header)
       end
     end
 
@@ -59,13 +53,14 @@ module POEditor
     # @param type [String]
     # @param tags [Array<String>]
     # @param filters [Array<String>]
+    # @param header [String]
     #
     # @return Downloaded translation content
-    def export(api_key:, project_id:, language:, type:, tags:nil, filters:nil)
+    def export(api_key:, project_id:, language:, type:, tags:nil, filters:nil, header:nil)
       options = {
         "id" => project_id,
         "language" => convert_to_poeditor_language(language),
-        "type" => type,
+        "type" => "json",
         "tags" => (tags || []).join(","),
         "filters" => (filters || []).join(","),
       }
@@ -83,14 +78,226 @@ module POEditor
       case type
       when "apple_strings"
         content.gsub!(/(%(\d+\$)?)s/, '\1@')  # %s -> %@
-      when "android_strings"
+      when "android_strings", "kotlin_strings"
         content.gsub!(/(%(\d+\$)?)@/, '\1s')  # %@ -> %s
       end
 
-      unless content.end_with? "\n"
-        content += "\n"
+      json = JSON.parse content
+      groups = json.group_by { |json| json['context'] }
+      placeholderItems = []
+      groups.each do |context, json|
+        if context == ""
+          json.each { |item|
+            definition = item["definition"]
+            if definition =~ /\$([a-z_]{3,})/
+              placeholderItems << item
+            end
+          }
+        end
       end
+      groups.each do |context, json|
+        if context != ""
+          if @configuration.context_path == nil
+            next # if context path is not defined, skip saving context strings
+          end
+          copyPlaceholderItems(placeholderItems, context, json)
+        end
+
+        case type
+        when "apple_strings"
+          singularContent = singularAppleStrings(json)
+          write(context, language, singularContent, :singular)
+
+          if @configuration.path_plural != {}
+            pluralContent = pluralAppleStrings(json)
+            write(context, language, pluralContent, :plural)
+          end
+        when "android_strings"
+          content = androidStrings(json)
+          path = path_for_context_language(context, language)
+          write(context, language, content, :singular)
+        when "kotlin_strings"
+          content = kotlinStrings(json, header)
+          path = path_for_context_language(context, language)
+          write(context, language, content, :singular)
+          if @configuration.path_plural != {}
+            pluralContent = pluralKotlinStrings(json, header)
+            write(context, language, pluralContent, :plural)
+          end
+        end
+      end
+    end
+
+    # Copy items with replaced placeholders to context json
+    #
+    # @param items [JSON]
+    # @param context String
+    # @param contextJson JSON
+    #
+    def copyPlaceholderItems(items, context, contextJson)
+      items.each { |item|
+        term = item["term"]
+        definition = item["definition"].gsub(/\$([a-z_]{3,})/) { |placeholder|
+          definitionForPlaceholder(placeholder, contextJson)
+        }
+
+        if !contextJson.find { |e| e["term"] == term }
+          newItem = {
+            "term" => term,
+            "definition" => definition,
+            "context" => context
+          }
+          contextJson << newItem
+        end
+      }
+    end
+
+    def definitionForPlaceholder(placeholder, contextJson)
+      term = placeholder.delete_prefix("$")
+      contextJson.each { |item|
+        if item["term"] == term
+          return item["definition"]
+        end
+      }
+      return placeholder
+    end
+
+    def singularAppleStrings(json)
+      content = ""
+      json.each { |item|
+        term = item["term"]
+        definition = item["definition"]
+        if definition.instance_of? String
+          value = definition.gsub("\"", "\\\"")
+          content << "\"#{term}\" = \"#{value}\";\n"
+        end
+      }
       return content
+    end
+
+    def pluralAppleStrings(json)
+      content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>"
+      json.each { |item|
+        term = item["term"]
+        definition = item["definition"]
+        if definition.instance_of? Hash
+          content << "
+    <key>#{term}</key>
+    <dict>
+        <key>NSStringLocalizedFormatKey</key>
+        <string>%\#@VARIABLE@</string>
+        <key>VARIABLE</key>
+        <dict>
+            <key>NSStringFormatSpecTypeKey</key>
+            <string>NSStringPluralRuleType</string>
+            <key>NSStringFormatValueTypeKey</key>
+            <string>d</string>"
+          ["zero", "one", "two", "few", "many", "other"].each { |form|
+            if definition[form] != nil
+              value = definition[form].gsub("\"", "\\\"")
+              content << "
+            <key>#{form}</key>
+            <string>#{value}</string>"
+            else
+              content << "
+            <key>#{form}</key>
+            <string></string>"
+            end
+          }
+          content << "
+        </dict>
+    </dict>"
+        end
+      }
+      content << "
+</dict>
+</plist>"
+      return content
+    end
+
+    def androidStrings(json)
+      content = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n"
+      json.each { |item|
+        definition = item["definition"]
+        if definition != nil
+          if definition.instance_of? String
+            value = definition.gsub("\"", "\\\"").gsub("&", "&amp;")
+            content << "    <string name=\"#{item["term"]}\">\"#{value}\"</string>\n"
+          else
+            content << "    <plurals name=\"#{item["term"]}\">\n"
+            ["zero", "one", "two", "few", "many", "other"].each { |form|
+              pluralItem = androidPluralItem(definition, form)
+              if pluralItem != nil
+                content << pluralItem
+              end
+            }
+            content << "    </plurals>\n"
+          end
+        end
+      }
+      content << "</resources>\n"
+      return content
+    end
+
+    def kotlinStrings(json, header)
+      content = ""
+      if header != nil
+        content << "#{header}\n\n"
+      end
+      content << "import com.splendo.kaluga.resources.localized
+import kotlin.native.concurrent.ThreadLocal
+
+@ThreadLocal
+object Strings {
+"
+      json.each { |item|
+        term = item["term"]
+        definition = item["definition"]
+        if definition.instance_of? String
+          content << "    val #{snakeCaseToCamelCase(term)} by lazy { \"#{term}\".localized() }\n"
+        end
+      }
+      content << "}\n"
+      return content
+    end
+
+    def pluralKotlinStrings(json, header)
+      content = ""
+      if header != nil
+        content << "#{header}\n\n"
+      end
+      content << "import com.splendo.kaluga.resources.quantity
+import kotlin.native.concurrent.ThreadLocal
+
+@ThreadLocal
+object Plurals {
+"
+      json.each { |item|
+        term = item["term"]
+        definition = item["definition"]
+        if definition.instance_of? Hash
+          content << "    fun #{snakeCaseToCamelCase(term)}(value: Int): String { return \"#{term}\".quantity(value) }\n"
+        end
+      }
+      content << "}\n"
+      return content
+    end
+
+    def snakeCaseToCamelCase(text)
+      words = text.split('_')
+      return words[0] + words[1..-1].collect(&:capitalize).join
+    end
+
+    def androidPluralItem(definition, form)
+      if definition[form] != nil
+        value = definition[form].gsub("\"", "\\\"").gsub("&", "&amp;")
+        return "    <item quantity=\"#{form}\">\"#{value}\"</item>\n"
+      else
+        return nil
+      end
     end
 
     def convert_to_poeditor_language(language)
@@ -103,23 +310,64 @@ module POEditor
       end
     end
 
+    def write(context, language, content, plurality)
+      write_content_to_path(context, language, content, plurality)
+      for alias_to, alias_from in @configuration.language_alias
+        if language == alias_from
+          write_content_to_path(context, alias_to, content, plurality)
+        end
+      end
+    end
+
     # Write translation file
-    def write(language, content)
-      path = path_for_language(language)
-      unless File.exist?(path)
-        raise POEditor::Exception.new "#{path} doesn't exist"
+    def write_content_to_path(context, language, content, plurality)
+      case plurality
+      when :singular
+        path = path_for_context_language(context, language)
+      when :plural
+        path = path_plural_for_context_language(context, language)
       end
-      File.write(path, content)
-      UI.puts "      #{"\xe2\x9c\x93".green} Saved at '#{path}'"
-    end
 
-    def path_for_language(language)
-      if @configuration.path_replace[language]
-        @configuration.path_replace[language]
+      unless path != nil
+        raise POEditor::Exception.new "Undefined context path"
+      end
+
+      if File.exist?(path)
+        File.write(path, content)
+        UI.puts "      #{"\xe2\x9c\x93".green} Saved at '#{path}'"
       else
-        @configuration.path.gsub("{LANGUAGE}", language)
+        UI.puts "      #{"\xe2\x9c\x97".red} File not found '#{path}'"
       end
     end
 
+    def path_for_context_language(context, language)
+      if context == nil || context == ""
+        if @configuration.path_replace[language]
+          path = @configuration.path_replace[language]
+        else
+          path = @configuration.path.gsub("{LANGUAGE}", language)
+        end
+      else
+        if @configuration.context_path_replace[language]
+          path = @configuration.context_path_replace[language].gsub("{CONTEXT}", context)
+        elsif @configuration.context_path
+          path = @configuration.context_path.gsub("{LANGUAGE}", language).gsub("{CONTEXT}", context)
+        else
+          return nil
+        end
+      end
+    end
+
+    def path_plural_for_context_language(context, language)
+      if context == nil || context == ""
+        path = @configuration.path_plural.gsub("{LANGUAGE}", language)
+      else
+        if @configuration.context_path_plural
+          path = @configuration.context_path_plural.gsub("{LANGUAGE}", language).gsub("{CONTEXT}", context)
+        else
+          return nil
+        end
+      end
+    end
   end
 end

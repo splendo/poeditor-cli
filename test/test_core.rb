@@ -8,24 +8,63 @@ class CoreTest < Test
 
   def setup
     clean()
-    for language in ["en", "ko", "ja", "zh", "zh-Hans", "zh-Hant"]
+    
+    contexts = ["context1", "context2"]
+    ios_languages = ["en", "ja", "ko", "nl", "zh", "zh-Hans", "zh-Hant"]
+    android_languages = ["en", "ja", "ko", "nl", "zh", "zh-rCN", "zh-rTW"]
+    base_language = "en"
+
+    # iOS
+    for language in ios_languages
       FileUtils.mkdir_p("TestProj/#{language}.lproj")
       File.write("TestProj/#{language}.lproj/Localizable.strings", "")
-    end
-    for language in ["en", "ko", "ja", "zh", "zh-rCN", "zh-rTW"]
-      if language == "en"
-        dirname = "TestProj/values"
-      else
-        dirname = "TestProj/values-#{language}"
+      File.write("TestProj/#{language}.lproj/Localizable.stringsdict", "")
+      for context in contexts
+        File.write("TestProj/#{language}.lproj/#{context}.strings", "")
+        File.write("TestProj/#{language}.lproj/#{context}.stringsdict", "")
       end
-      FileUtils.mkdir_p(dirname)
-      File.write("#{dirname}/strings.xml", "")
+    end
+    
+    # Android
+    for language in android_languages
+        if language == base_language
+          FileUtils.mkdir_p("TestProj/values")
+          File.write("TestProj/values/strings.xml", "")
+        else
+          FileUtils.mkdir_p("TestProj/values-#{language}")
+          File.write("TestProj/values-#{language}/strings.xml", "")
+        end
+      for context in contexts
+        if language == base_language
+          FileUtils.mkdir_p("TestProj/#{context}/values")
+          File.write("TestProj/#{context}/values/strings.xml", "")
+        else
+          FileUtils.mkdir_p("TestProj/#{context}/values-#{language}")
+          File.write("TestProj/#{context}/values-#{language}/strings.xml", "")
+        end
+      end
     end
 
-    stub_api_export "en", %{"greeting" = "Hi, %s!";}
-    stub_api_export "ko", %{"greeting" = "%s님 안녕하세요!";}
-    stub_api_export "zh-CN", %{"greeting" = "Simplified 你好, %s!";}
-    stub_api_export "zh-TW", %{"greeting" = "Traditional 你好, %s!";}
+    stub_api_export "en", %{[
+      {"term": "greeting", "definition": "Hi, %s!", "context": ""},
+      {"term": "welcome", "definition": "Welcome!", "context": ""},
+      {"term": "welcome", "definition": "Welcome to App 1!", "context": "context1"},
+      {"term": "welcome", "definition": "Welcome to App 2!", "context": "context2"},
+      {"term": "thank_you", "definition": "Thank you for downloading $app_name.", "context": ""},
+      {"term": "app_name", "definition": "App 1 in 🇬🇧", "context": "context1"},
+      {"term": "app_name", "definition": "App 2 in 🇬🇧", "context": "context2"}
+    ]}
+    stub_api_export "nl", %{[
+      {"term": "welcome", "definition": "Welkom!", "context": ""},
+      {"term": "welcome", "definition": "Welkom bij App 1!", "context": "context1"},
+      {"term": "welcome", "definition": "Welkom bij App 2!", "context": "context2"},
+      {"term": "thank_you", "definition": "Bedankt voor het downloaden van $app_name.", "context": ""},
+      {"term": "app_name", "definition": "App 1 in 🇳🇱", "context": "context1"},
+      {"term": "app_name", "definition": "App 2 in 🇳🇱", "context": "context2"}
+    ]}
+    stub_api_export "ko", %{[{"term": "greeting", "definition": "%s님 안녕하세요!", "context": ""}]}
+    stub_api_export "zh-CN", %{[{"term": "greeting", "definition": "Simplified 你好, %s!", "context": ""}]}
+    stub_api_export "zh-TW", %{[{"term": "greeting", "definition": "Traditional 你好, %s!", "context": ""}]}
   end
 
   def teardown
@@ -33,9 +72,9 @@ class CoreTest < Test
     clean()
   end
 
-  def get_client(type:,
-                 languages:, language_alias:nil,
-                 path:, path_replace:nil)
+  def get_client(type:, languages:, language_alias:nil,
+                 path:, path_plural:nil, path_replace:nil,
+                 context_path:nil, context_path_plural:nil, context_path_replace:nil)
     configuration = POEditor::Configuration.new(
       :api_key => "TEST",
       :project_id => 12345,
@@ -44,8 +83,12 @@ class CoreTest < Test
       :filters => nil,
       :languages => languages,
       :language_alias => language_alias,
-      :path_replace => path_replace,
       :path => path,
+      :path_plural => path_plural,
+      :path_replace => path_replace,
+      :context_path => context_path,
+      :context_path_plural => context_path_plural,
+      :context_path_replace => context_path_replace
     )
     POEditor::Core.new(configuration)
   end
@@ -112,6 +155,51 @@ class CoreTest < Test
     refute File.exist?("TestProj/values-en/strings.xml")
     assert_match "Hi, %s!",
       File.read("TestProj/values/strings.xml")
+  end
+
+  def test_context
+    client = get_client(
+      :type => "android_strings",
+      :languages => ["en", "nl"],
+      :path => "TestProj/values-{LANGUAGE}/strings.xml",
+      :path_replace => {"en" => "TestProj/values/strings.xml"},
+      :context_path => "TestProj/{CONTEXT}/values-{LANGUAGE}/strings.xml",
+      :context_path_replace => {"en" => "TestProj/{CONTEXT}/values/strings.xml"}
+    )
+    client.pull()
+
+    assert_match /Welcome!/, File.read("TestProj/values/strings.xml")
+    assert_match /Welcome to App 1!/, File.read("TestProj/context1/values/strings.xml")
+    assert_match /Welcome to App 2!/, File.read("TestProj/context2/values/strings.xml")
+
+    assert_match /Welkom!/, File.read("TestProj/values-nl/strings.xml")
+    assert_match /Welkom bij App 1!/, File.read("TestProj/context1/values-nl/strings.xml")
+    assert_match /Welkom bij App 2!/, File.read("TestProj/context2/values-nl/strings.xml")
+
+    assert(!/Welcome!/.match(File.read("TestProj/values-nl/strings.xml")))
+    assert(!/Welcome!/.match(File.read("TestProj/context1/values/strings.xml")))
+    assert(!/Welcome!/.match(File.read("TestProj/context1/values-nl/strings.xml")))
+
+    assert(!/Welkom!/.match(File.read("TestProj/values/strings.xml")))
+    assert(!/Welkom!/.match(File.read("TestProj/context1/values/strings.xml")))
+    assert(!/Welkom!/.match(File.read("TestProj/context1/values-nl/strings.xml")))
+  end
+
+  def test_placeholders
+    client = get_client(
+      :type => "android_strings",
+      :languages => ["en", "nl"],
+      :path => "TestProj/values-{LANGUAGE}/strings.xml",
+      :path_replace => {"en" => "TestProj/values/strings.xml"},
+      :context_path => "TestProj/{CONTEXT}/values-{LANGUAGE}/strings.xml",
+      :context_path_replace => {"en" => "TestProj/{CONTEXT}/values/strings.xml"}
+    )
+    client.pull()
+
+    assert_match /Thank you for downloading App 1 in 🇬🇧./, File.read("TestProj/context1/values/strings.xml")
+    assert_match /Thank you for downloading App 2 in 🇬🇧./, File.read("TestProj/context2/values/strings.xml")
+    assert_match /Bedankt voor het downloaden van App 1 in 🇳🇱./, File.read("TestProj/context1/values-nl/strings.xml")
+    assert_match /Bedankt voor het downloaden van App 2 in 🇳🇱./, File.read("TestProj/context2/values-nl/strings.xml")
   end
 
 end
