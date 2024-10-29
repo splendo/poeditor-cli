@@ -267,15 +267,16 @@ object #{object_name} {
       return content
     end
 
-    def pluralKotlinStrings(json, header, kotlin_object_name, kotlin_loader)
+    def pluralKotlinStrings(json, header)
       content = ""
-      object_name = kotlin_object_name != nil ? "Plural#{kotlin_object_name}" : "Plurals"
       if header != nil
         content << "#{header}\n\n"
       end
       content << "import com.splendo.kaluga.resources.quantity
+import kotlin.native.concurrent.ThreadLocal
 
-object #{kotlin_object_name}Plurals {
+@ThreadLocal
+object Plurals {
 "
       json.each { |item|
         term = item["term"]
