@@ -281,12 +281,7 @@ object #{kotlin_object_name}Plurals {
         term = item["term"]
         definition = item["definition"]
         if definition.instance_of? Hash
-          content << "    fun #{snakeCaseToCamelCase(term)}(value: Int): String { return \"#{term}\".quantity(value"
-          if kotlin_loader != nil
-            content << ", #{kotlin_loader}) }\n"
-          else
-            content << ") }\n"
-          end
+          content << "    fun #{snakeCaseToCamelCase(term)}(value: Int): String { return \"#{term}\".quantity(value) }\n"
         end
       }
       content << "}\n"
