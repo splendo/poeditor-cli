@@ -43,7 +43,7 @@ module POEditor
                               :filters => @configuration.filters,
                               :header => @configuration.header,
                               :kotlin_object_name => @configuration.kotlin_object_name,
-                              :kotlin_loader => @configuration.kotlin_loader),
+                              :kotlin_loader => @configuration.kotlin_loader)
       end
     end
 
