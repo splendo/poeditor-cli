@@ -41,7 +41,9 @@ module POEditor
                               :type => @configuration.type,
                               :tags => @configuration.tags,
                               :filters => @configuration.filters,
-                              :header => @configuration.header)
+                              :header => @configuration.header,
+                              :kotlin_object_name => @configuration.kotlin_object_name,
+                              :kotlin_loader => @configuration.kotlin_loader),
       end
     end
 
@@ -54,9 +56,11 @@ module POEditor
     # @param tags [Array<String>]
     # @param filters [Array<String>]
     # @param header [String]
+    # @param kotlin_object_name [String]
+    # @param kotlin_loader [String]
     #
     # @return Downloaded translation content
-    def export(api_key:, project_id:, language:, type:, tags:nil, filters:nil, header:nil)
+    def export(api_key:, project_id:, language:, type:, tags:nil, filters:nil, header:nil, kotlin_object_name: nil, kotlin_loader: nil)
       options = {
         "id" => project_id,
         "language" => convert_to_poeditor_language(language),
@@ -242,44 +246,47 @@ module POEditor
       return content
     end
 
-    def kotlinStrings(json, header)
+    def kotlinStrings(json, header, kotlin_object_name, kotlin_loader)
       content = ""
+      object_name = kotlin_object_name || "Strings"
       if header != nil
         content << "#{header}\n\n"
       end
       content << "import com.splendo.kaluga.resources.localized
-import kotlin.native.concurrent.ThreadLocal
 
-@ThreadLocal
-object Strings {
+object #{object_name} {
 "
       json.each { |item|
         term = item["term"]
         definition = item["definition"]
         if definition.instance_of? String
-          content << "    val #{snakeCaseToCamelCase(term)} by lazy { \"#{term}\".localized() }\n"
+          content << "    val #{snakeCaseToCamelCase(term)} by lazy { \"#{term}\".localized(#{kotlin_loader}) }\n"
         end
       }
       content << "}\n"
       return content
     end
 
-    def pluralKotlinStrings(json, header)
+    def pluralKotlinStrings(json, header, kotlin_object_name, kotlin_loader)
       content = ""
+      object_name = kotlin_object_name != nil ? "Plural#{kotlin_object_name}" || "Plurals"
       if header != nil
         content << "#{header}\n\n"
       end
       content << "import com.splendo.kaluga.resources.quantity
-import kotlin.native.concurrent.ThreadLocal
 
-@ThreadLocal
-object Plurals {
+object #{kotlin_object_name}Plurals {
 "
       json.each { |item|
         term = item["term"]
         definition = item["definition"]
         if definition.instance_of? Hash
-          content << "    fun #{snakeCaseToCamelCase(term)}(value: Int): String { return \"#{term}\".quantity(value) }\n"
+          content << "    fun #{snakeCaseToCamelCase(term)}(value: Int): String { return \"#{term}\".quantity(value"
+          if kotlin_loader != nil
+            content << ", #{kotlin_loader}) }\n"
+          else
+            content << ") }\n"
+          end
         end
       }
       content << "}\n"
