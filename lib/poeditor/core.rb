@@ -121,11 +121,11 @@ module POEditor
           path = path_for_context_language(context, language)
           write(context, language, content, :singular)
         when "kotlin_strings"
-          content = kotlinStrings(json, header)
+          content = kotlinStrings(json, header, kotlin_object_name, kotlin_loader)
           path = path_for_context_language(context, language)
           write(context, language, content, :singular)
           if @configuration.path_plural != {}
-            pluralContent = pluralKotlinStrings(json, header)
+            pluralContent = pluralKotlinStrings(json, header, kotlin_object_name, kotlin_loader)
             write(context, language, pluralContent, :plural)
           end
         end
@@ -267,22 +267,26 @@ object #{object_name} {
       return content
     end
 
-    def pluralKotlinStrings(json, header)
+    def pluralKotlinStrings(json, header, kotlin_object_name, kotlin_loader)
       content = ""
+      object_name = kotlin_object_name != nil ? "Plural#{kotlin_object_name}" : "Plurals"
       if header != nil
         content << "#{header}\n\n"
       end
       content << "import com.splendo.kaluga.resources.quantity
-import kotlin.native.concurrent.ThreadLocal
 
-@ThreadLocal
-object Plurals {
+object #{kotlin_object_name}Plurals {
 "
       json.each { |item|
         term = item["term"]
         definition = item["definition"]
         if definition.instance_of? Hash
-          content << "    fun #{snakeCaseToCamelCase(term)}(value: Int): String { return \"#{term}\".quantity(value) }\n"
+          content << "    fun #{snakeCaseToCamelCase(term)}(value: Int): String { return \"#{term}\".quantity(value"
+          if kotlin_loader != nil
+            content << ", #{kotlin_loader}) }\n"
+          else
+            content << ") }\n"
+          end
         end
       }
       content << "}\n"
