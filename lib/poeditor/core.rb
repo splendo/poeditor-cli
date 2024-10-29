@@ -248,7 +248,7 @@ module POEditor
 
     def kotlinStrings(json, header, kotlin_object_name, kotlin_loader)
       content = ""
-      object_name = kotlin_object_name || "Strings"
+      object_name = kotlin_object_name : "Strings"
       if header != nil
         content << "#{header}\n\n"
       end
@@ -269,7 +269,7 @@ object #{object_name} {
 
     def pluralKotlinStrings(json, header, kotlin_object_name, kotlin_loader)
       content = ""
-      object_name = kotlin_object_name != nil ? "Plural#{kotlin_object_name}" || "Plurals"
+      object_name = kotlin_object_name != nil ? "Plural#{kotlin_object_name}" : "Plurals"
       if header != nil
         content << "#{header}\n\n"
       end
