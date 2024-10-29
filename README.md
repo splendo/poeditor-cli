@@ -24,7 +24,7 @@ $ [sudo] gem install poeditor-cli
 Install from given repo and branch:
 
 ```console
-$ [sudo] gem specific_install https://github.com/splendo/poeditor-cli -b kotlin-plurals
+$ [sudo] gem specific_install https://github.com/splendo/poeditor-cli -b kotlin
 ```
 
 ## Usage
