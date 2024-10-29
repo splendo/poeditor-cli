@@ -248,7 +248,7 @@ module POEditor
 
     def kotlinStrings(json, header, kotlin_object_name, kotlin_loader)
       content = ""
-      object_name = kotlin_object_name : "Strings"
+      object_name = kotlin_object_name || "Strings"
       if header != nil
         content << "#{header}\n\n"
       end
