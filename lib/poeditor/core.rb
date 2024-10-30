@@ -41,7 +41,9 @@ module POEditor
                               :type => @configuration.type,
                               :tags => @configuration.tags,
                               :filters => @configuration.filters,
-                              :header => @configuration.header)
+                              :header => @configuration.header,
+                              :kotlin_object_name => @configuration.kotlin_object_name,
+                              :kotlin_loader => @configuration.kotlin_loader)
       end
     end
 
@@ -54,9 +56,11 @@ module POEditor
     # @param tags [Array<String>]
     # @param filters [Array<String>]
     # @param header [String]
+    # @param kotlin_object_name [String]
+    # @param kotlin_loader [String]
     #
     # @return Downloaded translation content
-    def export(api_key:, project_id:, language:, type:, tags:nil, filters:nil, header:nil)
+    def export(api_key:, project_id:, language:, type:, tags:nil, filters:nil, header:nil, kotlin_object_name: nil, kotlin_loader: nil)
       options = {
         "id" => project_id,
         "language" => convert_to_poeditor_language(language),
@@ -86,7 +90,7 @@ module POEditor
       groups = json.group_by { |json| json['context'] }
       placeholderItems = []
       groups.each do |context, json|
-        if context == "" 
+        if context == ""
           json.each { |item|
             definition = item["definition"]
             if definition =~ /\$([a-z_]{3,})/
@@ -96,7 +100,7 @@ module POEditor
         end
       end
       groups.each do |context, json|
-        if context != "" 
+        if context != ""
           if @configuration.context_path == nil
             next # if context path is not defined, skip saving context strings
           end
@@ -117,9 +121,13 @@ module POEditor
           path = path_for_context_language(context, language)
           write(context, language, content, :singular)
         when "kotlin_strings"
-          content = kotlinStrings(json, header)
+          content = kotlinStrings(json, header, kotlin_object_name, kotlin_loader)
           path = path_for_context_language(context, language)
           write(context, language, content, :singular)
+          if @configuration.path_plural != {}
+            pluralContent = pluralKotlinStrings(json, header, kotlin_object_name, kotlin_loader)
+            write(context, language, pluralContent, :plural)
+          end
         end
       end
     end
@@ -134,7 +142,7 @@ module POEditor
       items.each { |item|
         term = item["term"]
         definition = item["definition"].gsub(/\$([a-z_]{3,})/) { |placeholder|
-          definitionForPlaceholder(placeholder, contextJson) 
+          definitionForPlaceholder(placeholder, contextJson)
         }
 
         if !contextJson.find { |e| e["term"] == term }
@@ -222,7 +230,7 @@ module POEditor
           if definition.instance_of? String
             value = definition.gsub("\"", "\\\"").gsub("&", "&amp;")
             content << "    <string name=\"#{item["term"]}\">\"#{value}\"</string>\n"
-          else	
+          else
             content << "    <plurals name=\"#{item["term"]}\">\n"
             ["zero", "one", "two", "few", "many", "other"].each { |form|
               pluralItem = androidPluralItem(definition, form)
@@ -237,31 +245,61 @@ module POEditor
       content << "</resources>\n"
       return content
     end
-    
-    def kotlinStrings(json, header)
-      content = ""
-      if header != nil
-      	content << "#{header}\n"
-      end
-      content << "import kotlin.native.concurrent.ThreadLocal
 
-@ThreadLocal
-object Strings {
+    def kotlinStrings(json, header, kotlin_object_name, kotlin_loader)
+      content = ""
+      object_name = kotlin_object_name || "Strings"
+      if header != nil
+        content << "#{header}\n\n"
+      end
+      content << "import com.splendo.kaluga.resources.localized
+
+object #{object_name} {
 "
       json.each { |item|
-      	content << "    val #{snakeCaseToCamelCase(item["term"])} by lazy { \"#{item["term"]}\".localized() }\n"
+        term = item["term"]
+        definition = item["definition"]
+        if definition.instance_of? String
+          content << "    val #{snakeCaseToCamelCase(term)} by lazy { \"#{term}\".localized(#{kotlin_loader}) }\n"
+        end
       }
       content << "}\n"
       return content
     end
-    
+
+    def pluralKotlinStrings(json, header, kotlin_object_name, kotlin_loader)
+      content = ""
+      object_name = kotlin_object_name != nil ? "Plural#{kotlin_object_name}" : "Plurals"
+      if header != nil
+        content << "#{header}\n\n"
+      end
+      content << "import com.splendo.kaluga.resources.quantity
+
+object #{kotlin_object_name}Plurals {
+"
+      json.each { |item|
+        term = item["term"]
+        definition = item["definition"]
+        if definition.instance_of? Hash
+          content << "    fun #{snakeCaseToCamelCase(term)}(value: Int): String { return \"#{term}\".quantity(value"
+          if kotlin_loader != nil
+            content << ", #{kotlin_loader}) }\n"
+          else
+            content << ") }\n"
+          end
+        end
+      }
+      content << "}\n"
+      return content
+    end
+
     def snakeCaseToCamelCase(text)
-    	words = text.split('_')
-    	return words[0] + words[1..-1].collect(&:capitalize).join
+      words = text.split('_')
+      return words[0] + words[1..-1].collect(&:capitalize).join
     end
 
     def androidPluralItem(definition, form)
-      if definition[form] != nil 
+      if definition[form] != nil
         value = definition[form].gsub("\"", "\\\"").gsub("&", "&amp;")
         return "    <item quantity=\"#{form}\">\"#{value}\"</item>\n"
       else

@@ -42,6 +42,8 @@ Configuration file doesn't exist: #{config_path}.
         tags: yaml["tags"],
         filters: yaml["filters"],
         header: yaml["header"],
+        kotlin_object_name: yaml["kotlin_object_name"],
+        kotlin_loader: yaml["kotlin_loader"],
         languages: get_or_raise(yaml, "languages"),
         language_alias: yaml["language_alias"],
         path: get_or_raise(yaml, "path"),

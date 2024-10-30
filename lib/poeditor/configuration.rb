@@ -19,6 +19,12 @@ module POEditor
     # @return [Hash{Sting => String}] Header (optional)
     attr_accessor :header
 
+    # @return [String] the name to use for the Kotlin object loading
+    attr_accessor :kotlin_object_name
+
+    # @return [String] the stringLoader to use
+    attr_accessor :kotlin_loader
+
     # @return [Array<String>] The languages codes
     attr_accessor :languages
 
@@ -44,7 +50,7 @@ module POEditor
     attr_accessor :context_path_replace
 
     def initialize(api_key:, project_id:, type:, tags:nil, filters:nil, 
-    			   header:nil, languages:, language_alias:nil,
+    			   header:nil, kotlin_object_name: nil, kotlin_loader: nil, languages:, language_alias:nil,
                    path:, path_plural: nil, path_replace:nil,
                    context_path:nil, context_path_plural:nil, context_path_replace:nil)
       @api_key = from_env(api_key)
@@ -53,6 +59,8 @@ module POEditor
       @tags = tags || []
       @filters = filters || []
       @header = header
+      @kotlin_object_name = kotlin_object_name
+      @kotlin_loader = kotlin_loader
 
       @languages = languages
       @language_alias = language_alias || {}
@@ -81,6 +89,8 @@ module POEditor
         "tags" => self.tags,
         "filters" => self.filters,
         "header" => self.header,
+        "kotlin_object_name" => self.kotlin_object_name,
+        "kotlin_loader" => self.kotlin_loader,
         "languages" => self.languages,
         "language_alias" => self.language_alias,
         "path" => self.path,
