@@ -56,3 +56,5 @@ build-iPhoneSimulator/
 
 *.sublime-project
 *.sublime-workspace
+
+.DS_Store
