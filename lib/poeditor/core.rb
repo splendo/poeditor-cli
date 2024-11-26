@@ -205,10 +205,6 @@ module POEditor
               content << "
             <key>#{form}</key>
             <string>#{value}</string>"
-            else
-              content << "
-            <key>#{form}</key>
-            <string></string>"
             end
           }
           content << "
